@@ -64,6 +64,7 @@ class column:
     def init_space_march(self, phi_edge, radius, M_e, gamma):
         self.y_array = np.linspace(0, radius, self.n_points).reshape((1,self.n_points))
         self.nu_array = np.ones((1, self.n_points)) * prandtl_meyer(M_e, gamma)
+        self.phi_array = np.linspace(0, phi_edge, self.n_points).reshape((1,self.n_points))
         for i in range(self.n_points-1):
             phi_A = self.phi_array[0,i]
             phi_B = self.phi_array[0,i+1]
@@ -79,12 +80,12 @@ class column:
             mu_p = np.arcsin(1/M_p)
             a_A = 0.5*(phi_A + self.phi_array_2[0,i] + mu_a + mu_p)
             a_B = 0.5*(phi_B - mu_b + self.phi_array_2[0,i] - mu_p)
-            self.x_array_2[0,i] = (self.y_array[0,i+1] - self.y_array[0,i]) / (np.tan(a_A) - np.tan(a_B))
-            self.y_array_2[0,i] = self.y_array[0,i] + self.x_array_2[0,i]*np.tan(a_A)
+            self.x_array_2[0,i] = (self.y_array[0,i+1] - self.y_array[0,i] + self.x_array[0,i]*np.tan(a_A) - self.x_array[0,i+1]*np.tan(a_B)) / (np.tan(a_A) - np.tan(a_B))
+            self.y_array_2[0,i] = self.y_array[0,i] + (self.x_array_2[0,i]-self.x_array[0,i])*np.tan(a_A)
 
     def next_step(self, gamma, next_phi_edge):
         next_column = column(self.n_points)
-        next_column.x_array[0,0] = - self.y_array_2[0,0]/np.tan(self.phi_array_2[0,0] - np.arcsin(1/inverse_prandtl_meyer(self.nu_array_2[0,0], gamma)))
+        next_column.x_array[0,0] = self.x_array_2[0,0] - self.y_array_2[0,0]/np.tan(self.phi_array_2[0,0] - np.arcsin(1/inverse_prandtl_meyer(self.nu_array_2[0,0], gamma)))
         next_column.nu_array[0,0] = self.nu_array_2[0,0] + self.phi_array_2[0,0]
         for i in range(1, self.n_points-1):
             phi_A = self.phi_array_2[0, i-1]
@@ -101,8 +102,8 @@ class column:
             mu_p = np.arcsin(1 / M_p)
             a_A = 0.5 * (phi_A + next_column.phi_array[0, i] + mu_a + mu_p)
             a_B = 0.5 * (phi_B - mu_b + next_column.phi_array[0, i] - mu_p)
-            next_column.x_array[0, i] = (self.y_array_2[0, i] - self.y_array_2[0, i-1]) / (np.tan(a_A) - np.tan(a_B))
-            next_column.y_array[0, i] = self.y_array_2[0, i-1] + next_column.x_array[0, i] * np.tan(a_A)
+            next_column.x_array[0, i] = (self.y_array_2[0, i] - self.y_array_2[0, i-1] + self.x_array_2[0,i-1]*np.tan(a_A) - self.x_array_2[0,i]*np.tan(a_B)) / (np.tan(a_A) - np.tan(a_B))
+            next_column.y_array[0, i] = self.y_array_2[0, i-1] + (next_column.x_array[0, i] - self.x_array_2[0,i-1]) * np.tan(a_A)
         next_column.phi_array[0, -1] = next_phi_edge
         next_column.nu_array[0, -1] = next_column.phi_array[0, -1] + self.nu_array_2[0, -1] - self.phi_array_2[0, -1]
         Alp = 0.5*(self.phi_array_2[0,-1] + np.arcsin(1/inverse_prandtl_meyer(self.nu_array_2[0,-1], gamma)) + next_column.phi_array[0,-1] + np.arcsin(1/inverse_prandtl_meyer(next_column.nu_array[0,-1], gamma)))
@@ -126,8 +127,8 @@ class column:
             mu_p = np.arcsin(1/M_p)
             a_A = 0.5*(phi_A + next_column.phi_array_2[0,i] + mu_a + mu_p)
             a_B = 0.5*(phi_B - mu_b + next_column.phi_array_2[0,i] - mu_p)
-            next_column.x_array_2[0,i] = (next_column.y_array[0,i+1] - next_column.y_array[0,i]) / (np.tan(a_A) - np.tan(a_B))
-            next_column.y_array_2[0,i] = next_column.y_array[0,i] + next_column.x_array_2[0,i]*np.tan(a_A)
+            next_column.x_array_2[0,i] = (next_column.y_array[0,i+1] - next_column.y_array[0,i] + next_column.x_array[0,i]*np.tan(a_A) - next_column.x_array[0,i+1]*np.tan(a_B)) / (np.tan(a_A) - np.tan(a_B))
+            next_column.y_array_2[0,i] = next_column.y_array[0,i] + (next_column.x_array_2[0,i] - next_column.x_array[0,i])*np.tan(a_A)
 
         return next_column
 
@@ -141,14 +142,14 @@ for phi_edge in phi_edges[1:-1]:
     new_column = columns[-1].next_step(1.4, phi_edge)
     columns.append(new_column)
 
-xy_points_with_phi = np.array(sum([[[col.x_array[0,i], col.y_array[0,i], col.phi_array[0,i]] for i in range(len(col.x_array))]
-                               + [[col.x_array_2[0,i], col.y_array_2[0,i], col.phi_array_2[0,i]] for i in range(len(col.x_array_2))]
+xy_points_with_phi = np.array(sum([[[col.x_array[0,i], col.y_array[0,i], col.phi_array[0,i]] for i in range(np.shape(col.x_array)[1])]
+                               + [[col.x_array_2[0,i], col.y_array_2[0,i], col.phi_array_2[0,i]] for i in range(np.shape(col.x_array_2)[1])]
 
                                for col in columns], []))
 interp_phi = CloughTocher2DInterpolator(xy_points_with_phi[:,0:2], xy_points_with_phi[:,2])
 
 plt.figure()
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 100), np.linspace(0, 3, 100))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 100), np.linspace(0, 6, 100))
 Z = interp_phi(X, Y)
 plt.figure()
 plt.pcolormesh(X, Y, Z, shading='auto', cmap='viridis')
