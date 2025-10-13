@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import CloughTocher2DInterpolator
+from scipy.spatial import Delaunay
+
 
 # Define marching column class:
 
@@ -133,9 +135,9 @@ class column:
         return next_column
 
 
-phi_edges = np.ones(20) * np.pi/18
+phi_edges = np.linspace(0, np.pi/10, 200)
 columns = []
-init_column = column(10)
+init_column = column(50)
 init_column.init_space_march(phi_edges[0], 3, 1.7, 1.4)
 columns.append(init_column)
 for phi_edge in phi_edges[1:-1]:
@@ -146,14 +148,21 @@ xy_points_with_phi = np.array(sum([[[col.x_array[0,i], col.y_array[0,i], col.phi
                                + [[col.x_array_2[0,i], col.y_array_2[0,i], col.phi_array_2[0,i]] for i in range(np.shape(col.x_array_2)[1])]
 
                                for col in columns], []))
+top_points = np.array(sum([[[col.x_array[0,-1], col.y_array[0,-1], col.phi_array[0,-1]]]
+                               + [[col.x_array_2[0,-1], col.y_array_2[0,-1], col.phi_array_2[0,-1]]]
+
+                               for col in columns], []))
 interp_phi = CloughTocher2DInterpolator(xy_points_with_phi[:,0:2], xy_points_with_phi[:,2])
 
+
 plt.figure()
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 100), np.linspace(0, 6, 100))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 100), np.linspace(0, np.max(xy_points_with_phi[:,1]), 100))
 Z = interp_phi(X, Y)
+
+
 plt.figure()
 plt.pcolormesh(X, Y, Z, shading='auto', cmap='viridis')
-plt.scatter(xy_points_with_phi[:,0], xy_points_with_phi[:,1], c=xy_points_with_phi[:,2], edgecolor='k', cmap='viridis')
+plt.scatter(top_points[:,0], top_points[:,1], c=top_points[:,2], edgecolor='k', cmap='viridis')
 plt.title("Clough-Tocher (cubic) interpolation of scattered data")
 plt.colorbar()
 plt.show()
