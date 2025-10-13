@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import CloughTocher2DInterpolator
 
 # Define marching column class:
 
@@ -61,9 +62,9 @@ class column:
         self.n_points = n_points
 
     def init_space_march(self, phi_edge, radius, M_e, gamma):
-        self.y_array = np.linspace(0, radius, self.n_points)
+        self.y_array = np.linspace(0, radius, self.n_points).reshape((1,self.n_points))
         self.nu_array = np.ones((1, self.n_points)) * prandtl_meyer(M_e, gamma)
-        for i in range(self.n_points):
+        for i in range(self.n_points-1):
             phi_A = self.phi_array[0,i]
             phi_B = self.phi_array[0,i+1]
             nu_A = self.nu_array[0,i]
@@ -81,12 +82,11 @@ class column:
             self.x_array_2[0,i] = (self.y_array[0,i+1] - self.y_array[0,i]) / (np.tan(a_A) - np.tan(a_B))
             self.y_array_2[0,i] = self.y_array[0,i] + self.x_array_2[0,i]*np.tan(a_A)
 
-    def next_step(self, gamma):
+    def next_step(self, gamma, next_phi_edge):
         next_column = column(self.n_points)
-        next_phi_edge = 0
         next_column.x_array[0,0] = - self.y_array_2[0,0]/np.tan(self.phi_array_2[0,0] - np.arcsin(1/inverse_prandtl_meyer(self.nu_array_2[0,0], gamma)))
         next_column.nu_array[0,0] = self.nu_array_2[0,0] + self.phi_array_2[0,0]
-        for i in range(1, self.n_points):
+        for i in range(1, self.n_points-1):
             phi_A = self.phi_array_2[0, i-1]
             phi_B = self.phi_array_2[0, i]
             nu_A = self.nu_array_2[0, i-1]
@@ -111,7 +111,7 @@ class column:
         next_column.x_array[0, -1] = next_column.x_array[0, -2] - Dx
         next_column.y_array[0, -1] = next_column.y_array[0, -2] + Dy
 
-        for i in range(self.n_points):
+        for i in range(self.n_points-1):
             phi_A = next_column.phi_array[0,i]
             phi_B = next_column.phi_array[0,i+1]
             nu_A = next_column.nu_array[0,i]
@@ -128,3 +128,31 @@ class column:
             a_B = 0.5*(phi_B - mu_b + next_column.phi_array_2[0,i] - mu_p)
             next_column.x_array_2[0,i] = (next_column.y_array[0,i+1] - next_column.y_array[0,i]) / (np.tan(a_A) - np.tan(a_B))
             next_column.y_array_2[0,i] = next_column.y_array[0,i] + next_column.x_array_2[0,i]*np.tan(a_A)
+
+        return next_column
+
+
+phi_edges = np.ones(20) * np.pi/18
+columns = []
+init_column = column(10)
+init_column.init_space_march(phi_edges[0], 3, 1.7, 1.4)
+columns.append(init_column)
+for phi_edge in phi_edges[1:-1]:
+    new_column = columns[-1].next_step(1.4, phi_edge)
+    columns.append(new_column)
+
+xy_points_with_phi = np.array(sum([[[col.x_array[0,i], col.y_array[0,i], col.phi_array[0,i]] for i in range(len(col.x_array))]
+                               + [[col.x_array_2[0,i], col.y_array_2[0,i], col.phi_array_2[0,i]] for i in range(len(col.x_array_2))]
+
+                               for col in columns], []))
+interp_phi = CloughTocher2DInterpolator(xy_points_with_phi[:,0:2], xy_points_with_phi[:,2])
+
+plt.figure()
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 100), np.linspace(0, 3, 100))
+Z = interp_phi(X, Y)
+plt.figure()
+plt.pcolormesh(X, Y, Z, shading='auto', cmap='viridis')
+plt.scatter(xy_points_with_phi[:,0], xy_points_with_phi[:,1], c=xy_points_with_phi[:,2], edgecolor='k', cmap='viridis')
+plt.title("Clough-Tocher (cubic) interpolation of scattered data")
+plt.colorbar()
+plt.show()
