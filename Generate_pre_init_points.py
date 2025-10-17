@@ -11,7 +11,7 @@ def generate_pre_init_points(radius, phi_edge, init_column_x, init_column_y, n_p
     ylist = np.linspace(0, top_y, n_points)
     for x_r in xlist:
         for y_r in ylist:
-            print(x_r, y_r)
+            #print(x_r, y_r)
             if y_r > radius + np.tan(phi_edge) * x_r:
                 continue
             y_boundary = right_side(x_r)

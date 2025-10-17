@@ -246,7 +246,7 @@ init_column = column(n_vert)
 radius = 3
 init_column.init_space_march(0, radius, 2, 1.4)
 columns.append(init_column)
-P_atmos_to_P_e = 0.95
+P_atmos_to_P_e = 0.90
 counter=0
 phi_edges = []
 # counter += 1
@@ -489,7 +489,7 @@ mask = Y > y_edge
 Z_masked = np.ma.array(Z, mask=mask)
 
 fig5, ax5 = plt.subplots(dpi=600, figsize = (8,6))
-cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='bwr', norm=matplotlib.colors.CenteredNorm(vcenter=0))
+cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='bwr', norm=matplotlib.colors.CenteredNorm(vcenter=1))
 #cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
 #ax5.contour(X, Y, Z_masked)
 plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
