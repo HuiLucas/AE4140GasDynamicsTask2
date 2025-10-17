@@ -4,13 +4,16 @@ import matplotlib
 #matplotlib.use('TkAgg')
 from scipy.interpolate import CloughTocher2DInterpolator, interp1d, NearestNDInterpolator
 from scipy.spatial import Delaunay
+
+from Generate_pre_init_points import get_xy_with_vars, generate_pre_init_points
 from numba_kernels import (
     prandtl_meyer_nb,
     inverse_prandtl_meyer_nb,
     inverse_expansion_fan_function_nb,
     next_step_core_nb,
 )
-
+import copy
+import Generate_pre_init_points
 
 # Define marching column class:
 
@@ -74,11 +77,9 @@ class column:
             self.P_over_P_e_array_2[0,i] = ((1+0.5*(gamma-1)*self.M_array_2[0,i]**2)/(1+0.5*(gamma-1)*self.nozzle_exit_mach**2))**(-gamma/(gamma+1))
 
     def next_step(self, gamma, next_phi_edge, custom_nu_edge=0):
-        # Delegates the computation to the JIT-compiled core to avoid Python object overhead
         next_column = column(self.n_points)
         next_column.nozzle_exit_mach = self.nozzle_exit_mach
 
-        # Views to 1D arrays for JIT kernel
         prev_x = self.x_array[0]
         prev_y = self.y_array[0]
         prev_phi = self.phi_array[0]
@@ -131,7 +132,7 @@ class column:
         next_column.stop = bool(stop)
         return next_column
 
-    def backward_step(self, gamma, prev_phi_edge):
+    def backward_step(self, gamma, prev_phi_edge, radius=3):
         prev_column = column(self.n_points)
         prev_column.nozzle_exit_mach = self.nozzle_exit_mach
         for i in range(self.n_points-1):
@@ -153,6 +154,16 @@ class column:
             a_A = 0.5 * (phi_A - mu_a + prev_column.phi_array_2[0, i] - mu_p)
             prev_column.x_array_2[0, i] = (self.y_array[0, i+1] - self.y_array[0, i] - self.x_array[0,i+1]*np.tan(a_B) + self.x_array[0,i]*np.tan(a_A)) / (np.tan(a_A) - np.tan(a_B))
             prev_column.y_array_2[0, i] = self.y_array[0, i] + (prev_column.x_array_2[0, i] - self.x_array[0,i]) * np.tan(a_A)
+
+            if prev_column.y_array_2[0, i] < radius - 1/(np.sqrt(self.nozzle_exit_mach**2 - 1)) * prev_column.x_array_2[0, i]:
+                prev_column.phi_array_2[0, 1] = 0
+                prev_column.nu_array_2[0, 1] = prandtl_meyer(prev_column.nozzle_exit_mach, gamma)
+                prev_column.M_array_2[0, 1] = prev_column.nozzle_exit_mach
+                prev_column.P_over_P_e_array_2[0, 1] = ((1 + 0.5 * (gamma - 1) * prev_column.M_array_2[0, 1] ** 2) / (
+                            1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma + 1))
+                mu_p = np.arcsin(1 / M_p)
+
+
             if (prev_column.phi_array_2[0, i] + mu_p > np.pi/2) or ((prev_column.phi_array_2[0, i] - mu_p < -np.pi/2)):
                 prev_column.stop = True
         prev_column.phi_array[0, 0] = 0
@@ -187,6 +198,15 @@ class column:
             a_A = 0.5 * (phi_A - mu_a + prev_column.phi_array[0, i] - mu_p)
             prev_column.x_array[0, i] = (prev_column.y_array_2[0, i] - prev_column.y_array_2[0, i-1] - prev_column.x_array_2[0,i]*np.tan(a_B) + prev_column.x_array_2[0,i-1]*np.tan(a_A)) / (np.tan(a_A) - np.tan(a_B))
             prev_column.y_array[0, i] = prev_column.y_array_2[0, i-1] + (prev_column.x_array[0, i-1] - prev_column.x_array_2[0,i-1]) * np.tan(a_A)
+
+            if prev_column.y_array[0, i] < radius - 1 / (np.sqrt(self.nozzle_exit_mach ** 2 - 1)) * \
+                    prev_column.x_array[0, i]:
+                prev_column.phi_array[0, 1] = 0
+                prev_column.nu_array[0, 1] = prandtl_meyer(prev_column.nozzle_exit_mach, gamma)
+                prev_column.M_array[0, 1] = prev_column.nozzle_exit_mach
+                prev_column.P_over_P_e_array[0, 1] = ((1 + 0.5 * (gamma - 1) * prev_column.M_array[0, 1] ** 2) / (
+                        1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma + 1))
+                mu_p = np.arcsin(1 / M_p)
 
             #if prev_column.x_array[0,i] > prev_column.x_array_2[0,i]:
             if (prev_column.phi_array[0, i] + mu_p > np.pi/2) or ((prev_column.phi_array[0, i] - mu_p < -np.pi/2)):
@@ -299,16 +319,20 @@ columns[0] = init_column
 counter2 = 0
 xy = np.concatenate((init_column.x_array_2.T, init_column.y_array_2.T), axis=1)
 xy = np.concatenate((xy, np.concatenate((init_column.x_array.T, init_column.y_array.T), axis=1)), axis=0)
+xy_init = copy.deepcopy(xy)
 
 stopstop2 = False
-while stopstop2 == False and counter2 < 100:
+while stopstop2 == False and counter2 < 0*100:
     counter2 += 1
     phi_edge = columns[0].phi_array[0,-1] - columns[0].nu_array[0,-1] + prandtl_meyer(np.sqrt((2/(1.4-1)) * (1 + 0.5*(1.4-1)*columns[0].nozzle_exit_mach**2)*(P_atmos_to_P_e)**((-1.4-1)/1.4)-2/(1.4-1)), 1.4)
     print(counter2, phi_edge, stopstop2, columns[0].stop)
-    new_column = columns[0].backward_step(1.4, phi_edge)
+    new_column = columns[0].backward_step(1.4, phi_edge, radius)
     phi_edges.insert(0, phi_edge)
     xy = np.concatenate((xy, np.concatenate((new_column.x_array_2.T, new_column.y_array_2.T), axis=1)), axis=0)
     xy = np.concatenate((xy, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
+    if counter2 % 5 == 0:
+        xy_init = np.concatenate((xy_init, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
+
     if new_column.stop == False:
         columns.insert(0, new_column)
     else:
@@ -323,6 +347,9 @@ while stopstop == False and counter < 3000:
     new_column = columns[-1].next_step(1.4, phi_edge)
     xy = np.concatenate((xy, np.concatenate((new_column.x_array_2.T, new_column.y_array_2.T), axis=1)), axis=0)
     xy = np.concatenate((xy, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
+    if counter % 50 == 0:
+        xy_init = np.concatenate((xy_init, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
+
     if new_column.stop == False:
         columns.append(new_column)
     else:
@@ -348,6 +375,17 @@ xy_points_with_P_over_P_e = np.array(sum([[[col.x_array[0,i], col.y_array[0,i], 
 
                                for col in columns], []))
 print('5')
+prerunpoints = generate_pre_init_points(radius, phi_edges[0], init_column.x_array, init_column.y_array, n_vert)
+print('5a')
+extra_phi, extra_nu, extra_M, extra_PP = get_xy_with_vars(prerunpoints, phi_edges[0], init_column.nozzle_exit_mach, custom_nu_edge, radius, 1.4)
+print('5b')
+xy_points_with_phi = np.concatenate((xy_points_with_phi, extra_phi), axis=0)
+print('5c')
+xy_points_with_nu = np.concatenate((xy_points_with_nu, extra_nu), axis=0)
+print('5d')
+xy_points_with_M = np.concatenate((xy_points_with_M, extra_M), axis=0)
+print('5e')
+xy_points_with_P_over_P_e = np.concatenate((xy_points_with_P_over_P_e, extra_PP), axis=0)
 top_points = np.concatenate((np.array(sum([[[col.x_array[0,-1], col.y_array[0,-1], col.phi_array[0,-1]]]
 
 
@@ -394,7 +432,7 @@ ax.contour(X, Y, Z_masked)
 #plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 #plt.scatter(top_points_2[:,0], top_points_2[:,1], c='grey', edgecolor='k', cmap='viridis')
 #cm2 = plt.scatter(xy_points_with_phi[:, 0], xy_points_with_phi[:, 1] ,s=0.5, edgecolor='none')
-plt.title("Clough-Tocher (cubic) interpolation of scattered data")
+plt.title("V-")
 #plt.colorbar(cm)
 #plt.colorbar(cm2)
 
@@ -411,7 +449,7 @@ ax2.contour(X, Y, Z_masked)
 #plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 #plt.scatter(top_points_2[:,0], top_points_2[:,1], c='grey', edgecolor='k', cmap='viridis')
 #cm2 = plt.scatter(xy_points_with_phi[:, 0], xy_points_with_phi[:, 1] ,s=0.5, edgecolor='none')
-plt.title("Clough-Tocher (cubic) interpolation of scattered data")
+plt.title("V+")
 #plt.colorbar(cm)
 #plt.colorbar(cm2)
 
@@ -437,10 +475,11 @@ fig4, ax4 = plt.subplots(dpi=600, figsize = (8,6))
 cm4 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
 #ax4.contour(X, Y, Z_masked)
 plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
+plt.scatter(xy_init[:,0], xy_init[:,1], c='red', s=0.1)
 #plt.scatter(top_points_2[:,0], top_points_2[:,1], c='grey', edgecolor='k', cmap='viridis')
 #cm2 = plt.scatter(xy_points_with_phi[:, 0], xy_points_with_phi[:, 1] ,s=0.1, edgecolor='none')
-plt.title("Clough-Tocher (cubic) interpolation of scattered data")
-#plt.colorbar(cm)
+plt.title("Phi Distribution")
+plt.colorbar(cm4)
 #plt.colorbar(cm2)
 
 X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
@@ -456,10 +495,27 @@ cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='bwr', norm=matplotlib
 plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 #plt.scatter(top_points_2[:,0], top_points_2[:,1], c='grey', edgecolor='k', cmap='viridis')
 #cm2 = plt.scatter(xy_points_with_phi[:, 0], xy_points_with_phi[:, 1] ,s=0.1, edgecolor='none')
-plt.title("Clough-Tocher (cubic) interpolation of scattered data")
-#plt.colorbar(cm)
+plt.title("Pressure ratio distribution")
+plt.colorbar(cm5)
 #plt.colorbar(cm2)
 
+
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
+Z = interp_M(X, Y)
+y_edge = interp_edge(X)
+mask = Y > y_edge
+Z_masked = np.ma.array(Z, mask=mask)
+
+fig6, ax6 = plt.subplots(dpi=600, figsize = (8,6))
+#cm6 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='bwr', norm=matplotlib.colors.CenteredNorm(vcenter=0))
+cm6 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
+#ax5.contour(X, Y, Z_masked)
+plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
+#plt.scatter(top_points_2[:,0], top_points_2[:,1], c='grey', edgecolor='k', cmap='viridis')
+#cm2 = plt.scatter(xy_points_with_phi[:, 0], xy_points_with_phi[:, 1] ,s=0.1, edgecolor='none')
+plt.title("Mach number distribution")
+#plt.colorbar(cm)
+plt.colorbar(cm6)
 
 plt.show()
 print('final')
