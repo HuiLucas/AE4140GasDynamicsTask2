@@ -248,7 +248,7 @@ init_column = column(n_vert)
 radius = 3
 init_column.init_space_march(0, radius, 2, 1.4)
 columns.append(init_column)
-P_atmos_to_P_e = 0.95
+P_atmos_to_P_e = 0.85
 counter=0
 phi_edges = []
 # counter += 1
