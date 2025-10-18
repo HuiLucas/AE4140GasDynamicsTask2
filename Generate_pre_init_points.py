@@ -52,7 +52,7 @@ def get_xy_with_vars(points, phi_edge, M_nozzle, custom_nu_edge, radius, gamma):
         mu_2 = np.arcsin(1./M2)
         if y < radius - 1/(np.sqrt(M_nozzle**2 - 1)) * x:
             phi = 0
-            nu = inverse_prandtl_meyer_nb(M_nozzle, gamma)
+            nu = prandtl_meyer_nb(M_nozzle, gamma)
             M = M_nozzle
             P_over_Pe = 1.0
         elif y < radius + np.tan(phi_edge - mu_2) * x:
@@ -72,6 +72,11 @@ def get_xy_with_vars(points, phi_edge, M_nozzle, custom_nu_edge, radius, gamma):
         points_nu[i, 2] = nu
         points_M[i, 2] = M
         points_P_over_Pe[i, 2] = P_over_Pe
+        if nu > 10:
+            print(nu, M)
     return points_phi, points_nu, points_M, points_P_over_Pe
 
 
+if __name__ == "__main__":
+    print(inverse_prandtl_meyer_nb(2, 1.4))
+    print(prandtl_meyer_nb(2.0, 1.4))

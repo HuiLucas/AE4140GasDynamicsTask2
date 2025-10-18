@@ -211,8 +211,10 @@ class column:
             #if prev_column.x_array[0,i] > prev_column.x_array_2[0,i]:
             if (prev_column.phi_array[0, i] + mu_p > np.pi/2) or ((prev_column.phi_array[0, i] - mu_p < -np.pi/2)):
                 prev_column.stop = True
+                print('stopping because of spacelike')
             if np.max(prev_column.x_array) - np.min(prev_column.x_array) > 20:
                 prev_column.stop = True
+                print('stopping because of excessive length')
 
         # Alp = 0.5 * (self.phi_array[0, -1] - np.arcsin(1 / inverse_prandtl_meyer(self.nu_array[0, -1], gamma)) +
         #              prev_column.phi_array_2[0, -1] - np.arcsin(
@@ -246,7 +248,7 @@ init_column = column(n_vert)
 radius = 3
 init_column.init_space_march(0, radius, 2, 1.4)
 columns.append(init_column)
-P_atmos_to_P_e = 0.90
+P_atmos_to_P_e = 0.95
 counter=0
 phi_edges = []
 # counter += 1
@@ -339,7 +341,7 @@ while stopstop2 == False and counter2 < 0*100:
         stopstop2 = True
 
 stopstop = False
-while stopstop == False and counter < 3000:
+while stopstop == False and counter < 10000:
     counter += 1
     phi_edge = columns[-1].phi_array_2[0,-1] - columns[-1].nu_array_2[0,-1] + prandtl_meyer(np.sqrt((2/(1.4-1)) * (1 + 0.5*(1.4-1)*columns[-1].nozzle_exit_mach**2)*(P_atmos_to_P_e)**((-1.4-1)/1.4)-2/(1.4-1)), 1.4)
     phi_edges.append(phi_edge)
@@ -433,7 +435,7 @@ ax.contour(X, Y, Z_masked)
 #plt.scatter(top_points_2[:,0], top_points_2[:,1], c='grey', edgecolor='k', cmap='viridis')
 #cm2 = plt.scatter(xy_points_with_phi[:, 0], xy_points_with_phi[:, 1] ,s=0.5, edgecolor='none')
 plt.title("V-")
-#plt.colorbar(cm)
+plt.colorbar(cm)
 #plt.colorbar(cm2)
 
 X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
@@ -450,7 +452,7 @@ ax2.contour(X, Y, Z_masked)
 #plt.scatter(top_points_2[:,0], top_points_2[:,1], c='grey', edgecolor='k', cmap='viridis')
 #cm2 = plt.scatter(xy_points_with_phi[:, 0], xy_points_with_phi[:, 1] ,s=0.5, edgecolor='none')
 plt.title("V+")
-#plt.colorbar(cm)
+plt.colorbar(cm3)
 #plt.colorbar(cm2)
 
 X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 30), np.linspace(0, np.max(xy_points_with_phi[:,1]), 30))
@@ -516,6 +518,23 @@ plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='vi
 plt.title("Mach number distribution")
 #plt.colorbar(cm)
 plt.colorbar(cm6)
+
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
+Z = interp_nu(X, Y)
+y_edge = interp_edge(X)
+mask = Y > y_edge
+Z_masked = np.ma.array(Z, mask=mask)
+
+fig7, ax7 = plt.subplots(dpi=600, figsize = (8,6))
+#cm6 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='bwr', norm=matplotlib.colors.CenteredNorm(vcenter=0))
+cm7 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
+#ax5.contour(X, Y, Z_masked)
+plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
+#plt.scatter(top_points_2[:,0], top_points_2[:,1], c='grey', edgecolor='k', cmap='viridis')
+#cm2 = plt.scatter(xy_points_with_phi[:, 0], xy_points_with_phi[:, 1] ,s=0.1, edgecolor='none')
+plt.title("nu distribution")
+#plt.colorbar(cm)
+plt.colorbar(cm7)
 
 plt.show()
 print('final')

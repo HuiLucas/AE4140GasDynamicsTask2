@@ -200,11 +200,13 @@ def next_step_core_nb(
         out_y2[i] = out_y[i] + (out_x2[i] - out_x[i]) * np.tan(a_A)
         if (out_phi2[i] + mu_p > np.pi * 0.5) or (out_phi2[i] - mu_p < -np.pi * 0.5):
             stop = True
+            print('stopping because of spacelike')
         # if i != n_points - 2:
         #     if (out_y2[i + 1] < out_y2[1]) or (out_y2[i + 1] < 0.0):
         #         stop = True
-        if np.max(out_x2) - np.min(out_x2) > 20:
-            stop = True
+    if np.max(out_x2) - np.min(out_x2) > 20:
+        stop = True
+        print('stopping because of excessive length2', np.max(out_x2), np.min(out_x2))
 
     return stop
 
