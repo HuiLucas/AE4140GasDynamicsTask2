@@ -3,6 +3,7 @@ from numba import njit
 
 @njit(cache=True, fastmath=True)
 def prandtl_meyer_nb(M, gamma):
+    # NUMBA optimized Prandtl-Meyer function
     if M < 1.0:
         return 0.0
     if M < 1e6:
@@ -17,72 +18,78 @@ def prandtl_meyer_nb(M, gamma):
         return np.inf
 
 @njit(cache=True, fastmath=True)
-def inverse_prandtl_meyer_nb(nu_target, gamma, tol=1e-10, maxiter=60):
-    if nu_target < 0.0:
+def inverse_prandtl_meyer_nb(nu_input, gamma, tol=1e-10, maximum_iterations=60):
+    # NUMBA optimized inverse Prandtl-Meyer function using Newton-Raphson
+    if nu_input < 0.0:
         return np.nan
-    if abs(nu_target) == 0.0:
+    if abs(nu_input) == 0.0:
         return 1.0
 
-    def dnu_dM(M):
+    def PM_derivative(M):
+        # derivative of Prandtl-Meyer function with respect to M
         if M <= 1.0:
             return 0.0
-        return 2.0 * np.sqrt(max(M*M - 1.0, 0.0)) / (M * ((gamma - 1.0) * M * M + 2.0))
+        return 2.0 * np.sqrt(max(M**2 - 1.0, 0.0)) / (M * ((gamma - 1.0) * M**2 + 2.0))
 
-    M_lo = 1.0
-    M_hi = 2.0
-    while prandtl_meyer_nb(M_hi, gamma) < nu_target and M_hi < 1e8:
-        M_hi *= 2.0
+    # Newton-Raphson bounds
+    M_lower = 1.0
+    M_higher = 2.0
+    while prandtl_meyer_nb(M_higher, gamma) < nu_input and M_higher < 1e8:
+        M_higher *= 2.0
 
-    nu_lo = 0.0
-    nu_hi = prandtl_meyer_nb(M_hi, gamma)
-    if nu_hi > nu_lo:
-        M = M_lo + (nu_target - nu_lo) * (M_hi - M_lo) / (nu_hi - nu_lo)
+    nu_lower = 0.0
+    nu_higher = prandtl_meyer_nb(M_higher, gamma)
+    if nu_higher > nu_lower:
+        M = M_lower + (nu_input - nu_lower) * (M_higher - M_lower) / (nu_higher - nu_lower)
     else:
         M = 1.0
 
-    for _ in range(maxiter):
+    # Newton-Raphson iteration
+    for _ in range(maximum_iterations):
         nu_M = prandtl_meyer_nb(M, gamma)
-        f = nu_M - nu_target
-        if abs(f) < tol:
+        remainder = nu_M - nu_input
+        if abs(remainder) < tol:
             return M
-        dfdM = dnu_dM(M)
-        if dfdM != 0.0 and np.isfinite(dfdM):
-            M_new = M - f / dfdM
+        nu_der_eval = PM_derivative(M)
+        if nu_der_eval != 0.0 and np.isfinite(nu_der_eval):
+            M_new = M - remainder / nu_der_eval
         else:
-            M_new = 0.5 * (M_lo + M_hi)
-        if (M_new <= M_lo) or (M_new >= M_hi) or (M_new <= 1.0) or (not np.isfinite(M_new)):
-            M_new = 0.5 * (M_lo + M_hi)
-        if prandtl_meyer_nb(M_new, gamma) > nu_target:
-            M_hi = M_new
+            M_new = 0.5 * (M_lower + M_higher)
+        if (M_new <= M_lower) or (M_new >= M_higher) or (M_new <= 1.0) or (not np.isfinite(M_new)):
+            M_new = 0.5 * (M_lower + M_higher)
+        if prandtl_meyer_nb(M_new, gamma) > nu_input:
+            M_higher = M_new
         else:
-            M_lo = M_new
+            M_lower = M_new
         M = M_new
     return M
 
 @njit(cache=True, fastmath=True)
-def inverse_expansion_fan_function_nb(psi_target, gamma, mach_nozzle, tol=1e-10, maxiter=120):
-    nu0 = prandtl_meyer_nb(mach_nozzle, gamma)
+def inverse_expansion_fan_function_nb(psi_input, gamma, mach_nozzle, tol=1e-10, maximum_iterations=120):
+    # NUMBA optimized inverse expansion fan function using Newton-Raphson. Expansion fan function desribes relations between
+    # flow deflection angle phi and - characterisitic angle psi in an expansion fan.
+    nu_exit = prandtl_meyer_nb(mach_nozzle, gamma)
     phi = 0.0
-    for _ in range(maxiter):
-        M = inverse_prandtl_meyer_nb(nu0 + phi, gamma)
+    # Newton-Raphson iteration
+    for _ in range(maximum_iterations):
+        M = inverse_prandtl_meyer_nb(nu_exit + phi, gamma)
         if not np.isfinite(M) or M <= 1.0:
             M = max(M, 1.0000001)
         psi_val = phi - np.arcsin(1.0 / M)
-        f = psi_val - psi_target
-        if abs(f) < tol:
+        remainder = psi_val - psi_input
+        if abs(remainder) < tol:
             return phi
-        dnudM = 2.0 * np.sqrt(max(M*M - 1.0, 0.0)) / (M * ((gamma - 1.0) * M * M + 2.0))
+        dnudM = 2.0 * np.sqrt(max(M**2 - 1.0, 0.0)) / (M * ((gamma - 1.0) * M**2 + 2.0))
         if dnudM == 0.0:
             dpsi = 1.0
         else:
             dMdphi = 1.0 / dnudM
-            d_one_over_M_dphi = -(1.0 / (M * M)) * dMdphi
-            denom = np.sqrt(max(1.0 - 1.0 / (M * M), 1e-30))
+            d_one_over_M_dphi = -(1.0 / (M**2)) * dMdphi
+            denom = np.sqrt(max(1.0 - 1.0 / (M**2), 1e-30))
             dpsi = 1.0 - (1.0 / denom) * d_one_over_M_dphi
         if dpsi == 0.0 or not np.isfinite(dpsi):
-            # fallback small step
             dpsi = 1.0
-        phi -= f / dpsi
+        phi -= remainder / dpsi
     return phi
 
 @njit(cache=True, fastmath=True)
@@ -113,18 +120,21 @@ def next_step_core_nb(
     out_M2,
     out_P2,
 ):
+    # NUMBA optimized core function for calculating the next column(s) in the method of characteristics.
     stop = False
+    # Calculate properties at point at y=0 using the fact that phi=0 there.
     M_p0 = inverse_prandtl_meyer_nb(prev_nu2[0], gamma)
     mu_p0 = np.arcsin(1.0 / M_p0)
-    out_x[0] = prev_x2[0] - prev_y2[0] / np.tan(prev_phi2[0] - mu_p0)
+    out_x[0] = prev_x2[0] - prev_y2[0] / np.tan(prev_phi2[0] - mu_p0) # Position at intersection of y=0 and minus characteristic
     out_nu[0] = prev_nu2[0] + prev_phi2[0]
     out_phi[0] = 0.0
     out_M[0] = inverse_prandtl_meyer_nb(out_nu[0], gamma)
     out_P[0] = ((1.0 + 0.5 * (gamma - 1.0) * out_M[0] * out_M[0]) /
-                (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma - 1.0))
+                (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1.0))
 
-
+    # Calculate properties at internal points by propagating from previous column
     for i in range(1, n_points - 1):
+        # Using the defintions from the lecture
         phi_A = prev_phi2[i - 1]
         phi_B = prev_phi2[i]
         nu_A = prev_nu2[i - 1]
@@ -140,17 +150,22 @@ def next_step_core_nb(
         out_P[i] = ((1.0 + 0.5 * (gamma - 1.0) * out_M[i] * out_M[i]) /
                     (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma - 1.0))
         mu_p = np.arcsin(1.0 / M_p)
+        # Angles of the characteristic lines
         a_A = 0.5 * (phi_A + out_phi[i] + mu_a + mu_p)
         a_B = 0.5 * (phi_B - mu_b + out_phi[i] - mu_p)
-        denom = (np.tan(a_A) - np.tan(a_B))
-        if denom == 0.0:
-            denom = 1e-16
-        out_x[i] = (prev_y2[i] - prev_y2[i - 1] + prev_x2[i - 1] * np.tan(a_A) - prev_x2[i] * np.tan(a_B)) / denom
+
+        # Calculate position of point P by intersection of characteristic lines
+        denominator = (np.tan(a_A) - np.tan(a_B))
+        if denominator == 0.0:
+            denominator = 1e-16
+        out_x[i] = (prev_y2[i] - prev_y2[i - 1] + prev_x2[i - 1] * np.tan(a_A) - prev_x2[i] * np.tan(a_B)) / denominator
         out_y[i] = prev_y2[i - 1] + (out_x[i] - prev_x2[i - 1]) * np.tan(a_A)
+
+        # Check for spacelike condition
         if (out_phi[i] + mu_p > np.pi * 0.5) or (out_phi[i] - mu_p < -np.pi * 0.5):
             stop = True
 
-
+    # Calculate properties at the atmospheric boundary
     out_phi[n_points - 1] = next_phi_edge
     if custom_nu_edge == 0.0:
         out_nu[n_points - 1] = out_phi[n_points - 1] + prev_nu2[n_points - 2] - prev_phi2[n_points - 2]
@@ -160,21 +175,22 @@ def next_step_core_nb(
     out_P[n_points - 1] = ((1.0 + 0.5 * (gamma - 1.0) * out_M[n_points - 1] * out_M[n_points - 1]) /
                            (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma - 1.0))
 
-
+    # Define end point to be at the intersection of the + characteristic from the previous boundary point and the line going through
+    # point -2 and -3 in the new column.
     dx_last = out_x[n_points - 2] - out_x[n_points - 3]
     if dx_last == 0.0:
         dx_last = 1e-16
-    R = (out_y[n_points - 2] - out_y[n_points - 3]) / dx_last
-    tphi = np.tan(out_phi[n_points - 1])
-    denom = (R - tphi)
-    if denom == 0.0:
-        denom = 1e-16
-    out_x[n_points - 1] = (1.0 / denom) * (
+    R = (out_y[n_points - 2] - out_y[n_points - 3]) / dx_last # Slope of the line through points -2 and -3 in new column
+    tphi = np.tan(out_phi[n_points - 1]) # Slope of the + characteristic from previous boundary point
+    denominator = (R - tphi)
+    if denominator == 0.0:
+        denominator = 1e-16
+    out_x[n_points - 1] = (1.0 / denominator) * (
         prev_y[n_points - 1] - prev_x[n_points - 1] * tphi - out_y[n_points - 2] + out_x[n_points - 2] * R
     )
     out_y[n_points - 1] = prev_y[n_points - 1] + tphi * (out_x[n_points - 1] - prev_x[n_points - 1])
 
-
+    # Calculate the _2 column points using the same method
     for i in range(n_points - 1):
         phi_A = out_phi[i]
         phi_B = out_phi[i + 1]
@@ -193,20 +209,18 @@ def next_step_core_nb(
         mu_p = np.arcsin(1.0 / M_p)
         a_A = 0.5 * (phi_A + out_phi2[i] + mu_a + mu_p)
         a_B = 0.5 * (phi_B - mu_b + out_phi2[i] - mu_p)
-        denom = (np.tan(a_A) - np.tan(a_B))
-        if denom == 0.0:
-            denom = 1e-16
-        out_x2[i] = (out_y[i + 1] - out_y[i] + out_x[i] * np.tan(a_A) - out_x[i + 1] * np.tan(a_B)) / denom
+        denominator = (np.tan(a_A) - np.tan(a_B))
+        if denominator == 0.0:
+            denominator = 1e-16
+        out_x2[i] = (out_y[i + 1] - out_y[i] + out_x[i] * np.tan(a_A) - out_x[i + 1] * np.tan(a_B)) / denominator
         out_y2[i] = out_y[i] + (out_x2[i] - out_x[i]) * np.tan(a_A)
         if (out_phi2[i] + mu_p > np.pi * 0.5) or (out_phi2[i] - mu_p < -np.pi * 0.5):
             stop = True
             print('stopping because of spacelike')
-        # if i != n_points - 2:
-        #     if (out_y2[i + 1] < out_y2[1]) or (out_y2[i + 1] < 0.0):
-        #         stop = True
+
     if np.max(out_x2) - np.min(out_x2) > 100:
         stop = True
-        print('stopping because of excessive length2', np.max(out_x2), np.min(out_x2))
+        print('stopping because of numerical instability', np.max(out_x2), np.min(out_x2))
 
     return stop
 
