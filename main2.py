@@ -250,7 +250,7 @@ class column:
 print('Starting main2.py execution')
 #phi_edges = np.concatenate((np.zeros(50), np.linspace(0, np.pi/36, 50), np.linspace(np.pi/36, 0, 50), np.zeros(120)))
 columns = []
-n_vert = 8000
+n_vert = 1000
 init_column = column(n_vert)
 radius = 1
 init_column.init_space_march(0, radius, 2, 1.4)
@@ -353,7 +353,7 @@ while stopstop2 == False and counter2 < 0*100:
         stopstop2 = True
 
 stopstop = False
-while stopstop == False and counter < 100000:
+while stopstop == False and counter < 10*n_vert:
     counter += 1
     phi_edge = columns[-1].phi_array_2[0,-1] - columns[-1].nu_array_2[0,-1] + prandtl_meyer(np.sqrt((2/(1.4-1)) * (1 + 0.5*(1.4-1)*columns[-1].nozzle_exit_mach**2)*(P_atmos_to_P_e)**((1.4-1)/-1.4)-2/(1.4-1)), 1.4)
     phi_edges.append(phi_edge)
