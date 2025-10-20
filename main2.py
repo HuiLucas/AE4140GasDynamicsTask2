@@ -250,7 +250,7 @@ class column:
 print('Starting main2.py execution')
 #phi_edges = np.concatenate((np.zeros(50), np.linspace(0, np.pi/36, 50), np.linspace(np.pi/36, 0, 50), np.zeros(120)))
 columns = []
-n_vert = 1000
+n_vert = 4000
 init_column = column(n_vert)
 radius = 1
 init_column.init_space_march(0, radius, 2, 1.4)
