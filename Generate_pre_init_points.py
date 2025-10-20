@@ -61,13 +61,13 @@ def get_xy_with_vars(points, phi_edge, M_nozzle, custom_nu_edge, radius, gamma):
             nu = phi + prandtl_meyer_nb(M_nozzle, gamma)
             M = inverse_prandtl_meyer_nb(nu, gamma)
             P_over_Pe = ((1 + 0.5 * (1.4 - 1) * M ** 2) / (
-                1 + 0.5 * (1.4 - 1) * M_nozzle ** 2)) ** (-1.4 / (1.4 + 1))
+                1 + 0.5 * (1.4 - 1) * M_nozzle ** 2)) ** (-1.4 / (1.4 - 1))
         else:
             phi = phi_edge
             nu = custom_nu_edge
             M = inverse_prandtl_meyer_nb(nu, gamma)
             P_over_Pe = ((1 + 0.5 * (1.4 - 1) * M ** 2) / (
-                1 + 0.5 * (1.4 - 1) * M_nozzle ** 2)) ** (-1.4 / (1.4 + 1))
+                1 + 0.5 * (1.4 - 1) * M_nozzle ** 2)) ** (-1.4 / (1.4 - 1))
         points_phi[i, 2] = phi
         points_nu[i, 2] = nu
         points_M[i, 2] = M

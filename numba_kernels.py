@@ -60,7 +60,7 @@ def inverse_prandtl_meyer_nb(nu_target, gamma, tol=1e-10, maxiter=60):
     return M
 
 @njit(cache=True, fastmath=True)
-def inverse_expansion_fan_function_nb(psi_target, gamma, mach_nozzle, tol=1e-10, maxiter=60):
+def inverse_expansion_fan_function_nb(psi_target, gamma, mach_nozzle, tol=1e-10, maxiter=120):
     nu0 = prandtl_meyer_nb(mach_nozzle, gamma)
     phi = 0.0
     for _ in range(maxiter):
@@ -121,7 +121,7 @@ def next_step_core_nb(
     out_phi[0] = 0.0
     out_M[0] = inverse_prandtl_meyer_nb(out_nu[0], gamma)
     out_P[0] = ((1.0 + 0.5 * (gamma - 1.0) * out_M[0] * out_M[0]) /
-                (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma + 1.0))
+                (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma - 1.0))
 
 
     for i in range(1, n_points - 1):
@@ -138,7 +138,7 @@ def next_step_core_nb(
         M_p = inverse_prandtl_meyer_nb(out_nu[i], gamma)
         out_M[i] = M_p
         out_P[i] = ((1.0 + 0.5 * (gamma - 1.0) * out_M[i] * out_M[i]) /
-                    (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma + 1.0))
+                    (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma - 1.0))
         mu_p = np.arcsin(1.0 / M_p)
         a_A = 0.5 * (phi_A + out_phi[i] + mu_a + mu_p)
         a_B = 0.5 * (phi_B - mu_b + out_phi[i] - mu_p)
@@ -158,7 +158,7 @@ def next_step_core_nb(
         out_nu[n_points - 1] = custom_nu_edge
     out_M[n_points - 1] = inverse_prandtl_meyer_nb(out_nu[n_points - 1], gamma)
     out_P[n_points - 1] = ((1.0 + 0.5 * (gamma - 1.0) * out_M[n_points - 1] * out_M[n_points - 1]) /
-                           (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma + 1.0))
+                           (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma - 1.0))
 
 
     dx_last = out_x[n_points - 2] - out_x[n_points - 3]
@@ -189,7 +189,7 @@ def next_step_core_nb(
         M_p = inverse_prandtl_meyer_nb(out_nu2[i], gamma)
         out_M2[i] = M_p
         out_P2[i] = ((1.0 + 0.5 * (gamma - 1.0) * out_M2[i] * out_M2[i]) /
-                     (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma + 1.0))
+                     (1.0 + 0.5 * (gamma - 1.0) * nozzle_exit_mach * nozzle_exit_mach)) ** (-gamma / (gamma - 1.0))
         mu_p = np.arcsin(1.0 / M_p)
         a_A = 0.5 * (phi_A + out_phi2[i] + mu_a + mu_p)
         a_B = 0.5 * (phi_B - mu_b + out_phi2[i] - mu_p)
@@ -204,7 +204,7 @@ def next_step_core_nb(
         # if i != n_points - 2:
         #     if (out_y2[i + 1] < out_y2[1]) or (out_y2[i + 1] < 0.0):
         #         stop = True
-    if np.max(out_x2) - np.min(out_x2) > 20:
+    if np.max(out_x2) - np.min(out_x2) > 100:
         stop = True
         print('stopping because of excessive length2', np.max(out_x2), np.min(out_x2))
 

@@ -1,9 +1,17 @@
+print('Running main2.py')
 import numpy as np
 import matplotlib.pyplot as plt
+print('Finished import')
+
 import matplotlib
+print('Finished import')
+
 #matplotlib.use('TkAgg')
-from scipy.interpolate import CloughTocher2DInterpolator, interp1d, NearestNDInterpolator
+from scipy.interpolate import interp1d, NearestNDInterpolator
+print('Finished import')
+
 from scipy.spatial import Delaunay
+print('Finished import')
 
 from Generate_pre_init_points import get_xy_with_vars, generate_pre_init_points
 from numba_kernels import (
@@ -14,7 +22,6 @@ from numba_kernels import (
 )
 import copy
 import Generate_pre_init_points
-
 # Define marching column class:
 
 def prandtl_meyer(M, gamma):
@@ -74,7 +81,7 @@ class column:
             self.x_array_2[0,i] = (self.y_array[0,i+1] - self.y_array[0,i] + self.x_array[0,i]*np.tan(a_A) - self.x_array[0,i+1]*np.tan(a_B)) / (np.tan(a_A) - np.tan(a_B))
             self.y_array_2[0,i] = self.y_array[0,i] + (self.x_array_2[0,i]-self.x_array[0,i])*np.tan(a_A)
             self.M_array_2[0,i] = M_p
-            self.P_over_P_e_array_2[0,i] = ((1+0.5*(gamma-1)*self.M_array_2[0,i]**2)/(1+0.5*(gamma-1)*self.nozzle_exit_mach**2))**(-gamma/(gamma+1))
+            self.P_over_P_e_array_2[0,i] = ((1+0.5*(gamma-1)*self.M_array_2[0,i]**2)/(1+0.5*(gamma-1)*self.nozzle_exit_mach**2))**(-gamma/(gamma-1))
 
     def next_step(self, gamma, next_phi_edge, custom_nu_edge=0):
         next_column = column(self.n_points)
@@ -148,7 +155,7 @@ class column:
             prev_column.nu_array_2[0, i] = 0.5 * (nu_A + nu_B + phi_A - phi_B)
             M_p = inverse_prandtl_meyer(prev_column.nu_array_2[0, i], gamma)
             prev_column.M_array_2[0, i] = M_p
-            prev_column.P_over_P_e_array_2[0,i] = ((1+0.5*(gamma-1)*prev_column.M_array_2[0,i]**2)/(1+0.5*(gamma-1)*prev_column.nozzle_exit_mach**2))**(-gamma/(gamma+1))
+            prev_column.P_over_P_e_array_2[0,i] = ((1+0.5*(gamma-1)*prev_column.M_array_2[0,i]**2)/(1+0.5*(gamma-1)*prev_column.nozzle_exit_mach**2))**(-gamma/(gamma-1))
             mu_p = np.arcsin(1 / M_p)
             a_B = 0.5 * (phi_B + prev_column.phi_array_2[0, i] + mu_b + mu_p)
             a_A = 0.5 * (phi_A - mu_a + prev_column.phi_array_2[0, i] - mu_p)
@@ -160,7 +167,7 @@ class column:
                 prev_column.nu_array_2[0, 1] = prandtl_meyer(prev_column.nozzle_exit_mach, gamma)
                 prev_column.M_array_2[0, 1] = prev_column.nozzle_exit_mach
                 prev_column.P_over_P_e_array_2[0, 1] = ((1 + 0.5 * (gamma - 1) * prev_column.M_array_2[0, 1] ** 2) / (
-                            1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma + 1))
+                            1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1))
                 mu_p = np.arcsin(1 / M_p)
 
 
@@ -170,14 +177,14 @@ class column:
         prev_column.nu_array[0, 0] = prandtl_meyer(prev_column.nozzle_exit_mach, gamma)
         prev_column.M_array[0, 0] = prev_column.nozzle_exit_mach
         prev_column.P_over_P_e_array[0, 0] = ((1 + 0.5 * (gamma - 1) * prev_column.M_array[0, 0] ** 2) / (
-                    1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma + 1))
+                    1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1))
         prev_column.x_array[0, 0] = prev_column.x_array_2[0,0] - prev_column.y_array_2[0,0] / (np.tan(prev_column.phi_array_2[0,0] + np.arcsin(1/(inverse_prandtl_meyer(prev_column.nu_array_2[0,0], gamma)))))
         prev_column.y_array[0, 0] = 0
         prev_column.phi_array[0, -1] = prev_phi_edge
         prev_column.nu_array[0, -1] = prev_column.phi_array[0, -1] + prandtl_meyer(prev_column.nozzle_exit_mach, gamma)
         prev_column.M_array[0, -1] = inverse_prandtl_meyer(prev_column.nu_array[0, -1], gamma)
         prev_column.P_over_P_e_array[0, -1] = ((1 + 0.5 * (gamma - 1) * prev_column.M_array[0, -1] ** 2) / (
-                    1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma + 1))
+                    1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1))
 
         for i in range(1, self.n_points-1):
             phi_A = prev_column.phi_array_2[0, i-1]
@@ -192,7 +199,7 @@ class column:
             prev_column.nu_array[0, i] = 0.5 * (nu_A + nu_B + phi_A - phi_B)
             M_p = inverse_prandtl_meyer(prev_column.nu_array[0, i], gamma)
             prev_column.M_array[0, i] = M_p
-            prev_column.P_over_P_e_array[0,i] = ((1+0.5*(gamma-1)*prev_column.M_array[0,i]**2)/(1+0.5*(gamma-1)*prev_column.nozzle_exit_mach**2))**(-gamma/(gamma+1))
+            prev_column.P_over_P_e_array[0,i] = ((1+0.5*(gamma-1)*prev_column.M_array[0,i]**2)/(1+0.5*(gamma-1)*prev_column.nozzle_exit_mach**2))**(-gamma/(gamma-1))
             mu_p = np.arcsin(1 / M_p)
             a_B = 0.5 * (phi_B + prev_column.phi_array[0, i] + mu_b + mu_p)
             a_A = 0.5 * (phi_A - mu_a + prev_column.phi_array[0, i] - mu_p)
@@ -205,7 +212,7 @@ class column:
                 prev_column.nu_array[0, 1] = prandtl_meyer(prev_column.nozzle_exit_mach, gamma)
                 prev_column.M_array[0, 1] = prev_column.nozzle_exit_mach
                 prev_column.P_over_P_e_array[0, 1] = ((1 + 0.5 * (gamma - 1) * prev_column.M_array[0, 1] ** 2) / (
-                        1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma + 1))
+                        1 + 0.5 * (gamma - 1) * prev_column.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1))
                 mu_p = np.arcsin(1 / M_p)
 
             #if prev_column.x_array[0,i] > prev_column.x_array_2[0,i]:
@@ -240,19 +247,19 @@ class column:
 
         return prev_column
 
-
+print('Starting main2.py execution')
 #phi_edges = np.concatenate((np.zeros(50), np.linspace(0, np.pi/36, 50), np.linspace(np.pi/36, 0, 50), np.zeros(120)))
 columns = []
-n_vert = 1000
+n_vert = 8000
 init_column = column(n_vert)
-radius = 3
+radius = 1
 init_column.init_space_march(0, radius, 2, 1.4)
 columns.append(init_column)
-P_atmos_to_P_e = 0.85
+P_atmos_to_P_e = 0.5
 counter=0
 phi_edges = []
 # counter += 1
-custom_nu_edge = prandtl_meyer(np.sqrt((2/(1.4-1)) * (1 + 0.5*(1.4-1)*columns[-1].nozzle_exit_mach**2)*(P_atmos_to_P_e)**((-1.4-1)/1.4)-2/(1.4-1)), 1.4)
+custom_nu_edge = prandtl_meyer(np.sqrt((2/(1.4-1)) * (1 + 0.5*(1.4-1)*columns[-1].nozzle_exit_mach**2)*(P_atmos_to_P_e)**((1.4-1)/-1.4)-2/(1.4-1)), 1.4)
 phi_edge = custom_nu_edge - prandtl_meyer(init_column.nozzle_exit_mach, 1.4)
 # phi_edges.append(phi_edge)
 # print(counter, phi_edge)
@@ -260,6 +267,9 @@ phi_edge = custom_nu_edge - prandtl_meyer(init_column.nozzle_exit_mach, 1.4)
 mu_1 = np.arcsin(1/columns[-1].nozzle_exit_mach)
 mu_2 = np.arcsin(1/inverse_prandtl_meyer(custom_nu_edge, 1.4))
 init_column.x_array[0,0] = radius/np.tan(mu_1)
+init_column.Ds_arr = np.zeros((1, n_vert))
+init_column.psi_array = np.zeros((1, n_vert))
+print('here now')
 for i in range(1, n_vert):
     if i <= np.ceil((1-mu_2/(mu_1+phi_edge))*n_vert):
         Dpsi = (phi_edge - mu_2 + mu_1)/np.ceil((1-mu_2/(mu_1+phi_edge))*n_vert)
@@ -268,6 +278,8 @@ for i in range(1, n_vert):
         #psi = prev_psi + Dpsi
         prev_psi = psi - (phi_edge-mu_2 + mu_1)/np.ceil((1-mu_2/(mu_1+phi_edge))*n_vert)
         Ds = np.cos(psi - np.arctan((init_column.x_array[0, i-1] - 0) / (radius - init_column.y_array[0, i-1]))) * np.sqrt((init_column.x_array[0, i-1] - 0)**2 + (radius - init_column.y_array[0, i-1])**2) / np.cos(inverse_expansion_fan_function(prev_psi, 1.4, init_column.nozzle_exit_mach) - psi)
+        init_column.Ds_arr[0, i] = Ds
+        init_column.psi_array[0, i] = psi
         phi_local = inverse_expansion_fan_function(prev_psi, 1.4, init_column.nozzle_exit_mach)
         Dy = Ds * np.cos(phi_local)
         Dx = -Dy * np.tan(phi_local)
@@ -276,7 +288,7 @@ for i in range(1, n_vert):
         init_column.phi_array[0, i] = inverse_expansion_fan_function(psi, 1.4, init_column.nozzle_exit_mach)
         init_column.nu_array[0, i] = prandtl_meyer(init_column.nozzle_exit_mach, 1.4) + init_column.phi_array[0, i]
         init_column.M_array[0, i] = inverse_prandtl_meyer(init_column.nu_array[0, i], 1.4)
-        init_column.P_over_P_e_array[0, i] = ((1+0.5*(1.4-1)*init_column.M_array_2[0,i]**2)/(1+0.5*(1.4-1)*init_column.nozzle_exit_mach**2))**(-1.4/(1.4+1))
+        init_column.P_over_P_e_array[0, i] = ((1+0.5*(1.4-1)*init_column.M_array_2[0,i]**2)/(1+0.5*(1.4-1)*init_column.nozzle_exit_mach**2))**(-1.4/(1.4-1))
     else:
         Dpsi = (mu_2)/(n_vert - np.ceil((1-mu_2/(mu_1+phi_edge))*n_vert) - 1)
         #prev_psi = np.arctan((init_column.y_array[0, i-1] - radius) / (init_column.x_array[0, i-1] - 0))
@@ -294,7 +306,7 @@ for i in range(1, n_vert):
         init_column.phi_array[0, i] = phi_edge
         init_column.nu_array[0, i] = prandtl_meyer(init_column.nozzle_exit_mach, 1.4) + phi_edge
         init_column.M_array[0, i] = inverse_prandtl_meyer(init_column.nu_array[0, i], 1.4)
-        init_column.P_over_P_e_array[0, i] = ((1+0.5*(1.4-1)*init_column.M_array[0,i]**2)/(1+0.5*(1.4-1)*init_column.nozzle_exit_mach**2))**(-1.4/(1.4+1))
+        init_column.P_over_P_e_array[0, i] = ((1+0.5*(1.4-1)*init_column.M_array[0,i]**2)/(1+0.5*(1.4-1)*init_column.nozzle_exit_mach**2))**(-1.4/(1.4-1))
 for i in range(init_column.n_points - 1):
     phi_A = init_column.phi_array[0, i]
     phi_B = init_column.phi_array[0, i + 1]
@@ -315,7 +327,7 @@ for i in range(init_column.n_points - 1):
     init_column.y_array_2[0, i] = init_column.y_array[0, i] + (init_column.x_array_2[0, i] - init_column.x_array[0, i]) * np.tan(a_A)
     init_column.M_array_2[0, i] = M_p
     init_column.P_over_P_e_array_2[0, i] = ((1 + 0.5 * (1.4 - 1) * init_column.M_array_2[0, i] ** 2) / (
-                1 + 0.5 * (1.4 - 1) * init_column.nozzle_exit_mach ** 2)) ** (-1.4 / (1.4 + 1))
+                1 + 0.5 * (1.4 - 1) * init_column.nozzle_exit_mach ** 2)) ** (-1.4 / (1.4 - 1))
 
 columns[0] = init_column
 counter2 = 0
@@ -341,21 +353,28 @@ while stopstop2 == False and counter2 < 0*100:
         stopstop2 = True
 
 stopstop = False
-while stopstop == False and counter < 10000:
+while stopstop == False and counter < 100000:
     counter += 1
-    phi_edge = columns[-1].phi_array_2[0,-1] - columns[-1].nu_array_2[0,-1] + prandtl_meyer(np.sqrt((2/(1.4-1)) * (1 + 0.5*(1.4-1)*columns[-1].nozzle_exit_mach**2)*(P_atmos_to_P_e)**((-1.4-1)/1.4)-2/(1.4-1)), 1.4)
+    phi_edge = columns[-1].phi_array_2[0,-1] - columns[-1].nu_array_2[0,-1] + prandtl_meyer(np.sqrt((2/(1.4-1)) * (1 + 0.5*(1.4-1)*columns[-1].nozzle_exit_mach**2)*(P_atmos_to_P_e)**((1.4-1)/-1.4)-2/(1.4-1)), 1.4)
     phi_edges.append(phi_edge)
     print(counter, phi_edge, columns[-1].stop, stopstop)
     new_column = columns[-1].next_step(1.4, phi_edge)
     xy = np.concatenate((xy, np.concatenate((new_column.x_array_2.T, new_column.y_array_2.T), axis=1)), axis=0)
     xy = np.concatenate((xy, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
-    if counter % 50 == 0:
+    if counter % 200 == 0:
         xy_init = np.concatenate((xy_init, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
+
+
 
     if new_column.stop == False:
         columns.append(new_column)
     else:
         stopstop = True
+
+fig0, ax0 = plt.subplots(dpi=600, figsize = (8,6))
+plt.scatter(xy_init[:,0], xy_init[:,1], c='red', s=0.1)
+plt.show()
+
 print('1')
 xy_points_with_phi = np.array(sum([[[col.x_array[0,i], col.y_array[0,i], col.phi_array[0,i]] for i in range(np.shape(col.x_array)[1])]
                                + [[col.x_array_2[0,i], col.y_array_2[0,i], col.phi_array_2[0,i]] for i in range(np.shape(col.x_array_2)[1])]
