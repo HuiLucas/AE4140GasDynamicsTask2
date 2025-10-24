@@ -244,10 +244,10 @@ while stopstop == False and counter < 4*n_vert:
 
 
 # Plot columns:
-fig0, ax0 = plt.subplots(dpi=600, figsize = (8,6))
+fig0, ax0 = plt.subplots(dpi=600, figsize = (8,2))
 ax0.set_aspect('equal')
 plt.plot(xy_init[:,0], xy_init[:,1], ',r', markersize=0.1)
-plt.show()
+plt.title("Some of the columns used for computation")
 
 # Generate arrays of (x,y) points with associated flow properties for interpolation and plotting.
 print('1')
@@ -286,15 +286,15 @@ print('5e')
 xy_points_with_P_over_P_e = np.concatenate((xy_points_with_P_over_P_e, extra_PP), axis=0)
 
 # Get the points at the atmospheric boundary for plotting the edge.
-top_points = np.concatenate((np.array(sum([[[col.x_array[0,-1], col.y_array[0,-1], col.phi_array[0,-1]]]
-                               for col in columns], [])), xy_points_with_phi[:, :][-n_vert:]))
-# Get the points at the atmospheric boundary for the _2 columns.
-top_points_2 = np.array(sum([[[col.x_array_2[0,-1], col.y_array_2[0,-1], col.phi_array_2[0,-1]]]
+top_points =np.array(sum([[[col.x_array[0,-1], col.y_array[0,-1], col.phi_array[0,-1]]]
                                for col in columns], []))
+
 print('9')
 # Create interpolating functions for the flow properties.
 interp_edge = interp1d(top_points[:,0], top_points[:,1], kind='linear', bounds_error=False, fill_value='extrapolate')
-print('10')
+print('10a')
+inter_right_edge = interp1d(new_column.y_array.ravel(), new_column.x_array.ravel(), kind='linear', bounds_error=False, fill_value='extrapolate')
+print('10b')
 interp_phi = NearestNDInterpolator(xy_points_with_phi[:,0:2], xy_points_with_phi[:,2])
 print('11')
 interp_nu = NearestNDInterpolator(xy_points_with_nu[:,0:2], xy_points_with_nu[:,2])
@@ -309,117 +309,149 @@ def interp_V_Minus(X,Y): return interp_nu(X,Y) + interp_phi(X,Y)
 print('15')
 
 # Plot V-
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 2000), np.linspace(0, np.max(xy_points_with_phi[:,1]), 2000))
 Z = interp_V_Minus(X, Y)
 print('16')
 y_edge = interp_edge(X)
-mask = Y > y_edge
+y_right_edge = inter_right_edge(Y)
+mask = (Y > y_edge) | (X > y_right_edge)
 Z_masked = np.ma.array(Z, mask=mask)
 print('17')
 
 
-fig, ax = plt.subplots(dpi=600, figsize = (8,6))
+fig, ax = plt.subplots(dpi=600, figsize = (8,3))
 cm = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
 ax.contour(X, Y, Z_masked, colors='black', linewidths=0.1)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
 ax.set_aspect('equal')
 plt.title("V-")
-plt.colorbar(cm)
+plt.colorbar(cm, location='bottom')
 
 # Plot V+
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 2000), np.linspace(0, np.max(xy_points_with_phi[:,1]), 2000))
 Z = interp_V_Plus(X, Y)
 y_edge = interp_edge(X)
-mask = Y > y_edge
+y_right_edge = inter_right_edge(Y)
+mask = (Y > y_edge) | (X > y_right_edge)
 Z_masked = np.ma.array(Z, mask=mask)
 
-fig2, ax2 = plt.subplots(dpi=600, figsize = (8,6))
+fig2, ax2 = plt.subplots(dpi=600, figsize = (8,3))
 cm3 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
 ax2.contour(X, Y, Z_masked, colors='black', linewidths=0.1)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
 ax2.set_aspect('equal')
 plt.title("V+")
-plt.colorbar(cm3)
+plt.colorbar(cm3, location='bottom')
 
 # Plot vector field
 X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 30), np.linspace(0, np.max(xy_points_with_phi[:,1]), 30))
 Z1, Z2 = np.cos(interp_phi(X, Y)), np.sin(interp_phi(X, Y))
 y_edge = interp_edge(X)
-mask = Y > y_edge
+y_right_edge = inter_right_edge(Y)
+mask = (Y > y_edge) | (X > y_right_edge)
 Z_masked1, Z_masked2 = np.ma.filled(np.ma.array(Z1, mask=mask), fill_value=np.nan), np.ma.filled(np.ma.array(Z2, mask=mask), fill_value=np.nan)
 
-fig3, ax3 = plt.subplots()
+fig3, ax3 = plt.subplots(dpi=600, figsize=(8,2))
 q = ax3.quiver(X, Y, Z_masked1, Z_masked2, headaxislength=0)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
 ax3.set_aspect('equal')
+plt.title("Vector Field")
 
 # Plot phi
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 2000), np.linspace(0, np.max(xy_points_with_phi[:,1]), 2000))
 Z = interp_phi(X, Y)
 y_edge = interp_edge(X)
-mask = Y > y_edge
+y_right_edge = inter_right_edge(Y)
+mask = (Y > y_edge) | (X > y_right_edge)
 Z_masked = np.ma.array(Z, mask=mask)
 
-fig4, ax4 = plt.subplots(dpi=600, figsize = (8,6))
+fig4, ax4 = plt.subplots(dpi=600, figsize = (8,3))
 cm4 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
 #plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 #plt.scatter(xy_init[:,0], xy_init[:,1], c='red', s=0.1)
 plt.title("Phi Distribution")
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
 ax4.set_aspect('equal')
-plt.colorbar(cm4)
+plt.colorbar(cm4, location='bottom')
 
 # Plot P/P_e
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 2000), np.linspace(0, np.max(xy_points_with_phi[:,1]), 2000))
 Z = interp_P_over_P_e(X, Y)
 y_edge = interp_edge(X)
-mask = Y > y_edge
+y_right_edge = inter_right_edge(Y)
+mask = (Y > y_edge) | (X > y_right_edge)
 Z_masked = np.ma.array(Z, mask=mask)
 
-fig5, ax5 = plt.subplots(dpi=600, figsize = (8,6))
-cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='bwr', norm=matplotlib.colors.CenteredNorm(vcenter=1))
+fig5, ax5 = plt.subplots(dpi=600, figsize = (8,3))
+cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis', norm=matplotlib.colors.LogNorm(vmin=Z_masked.min(), vmax=Z_masked.max()))
+print(np.max(Z_masked), np.min(Z_masked))
 #plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 plt.title("Pressure ratio distribution")
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
 ax5.set_aspect('equal')
-plt.colorbar(cm5)
+plt.colorbar(cm5, location='bottom', format=matplotlib.ticker.LogFormatter(labelOnlyBase=False))
 
 # Plot M
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 2000), np.linspace(0, np.max(xy_points_with_phi[:,1]), 2000))
 Z = interp_M(X, Y)
 y_edge = interp_edge(X)
-mask = Y > y_edge
+y_right_edge = inter_right_edge(Y)
+mask = (Y > y_edge) | (X > y_right_edge)
 Z_masked = np.ma.array(Z, mask=mask)
 
-fig6, ax6 = plt.subplots(dpi=600, figsize = (8,6))
+fig6, ax6 = plt.subplots(dpi=600, figsize = (8,3))
 cm6 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
 #plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 plt.title("Mach number distribution")
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
 ax6.set_aspect('equal')
-plt.colorbar(cm6)
+plt.colorbar(cm6, location='bottom')
 
 # Plot nu
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 2000), np.linspace(0, np.max(xy_points_with_phi[:,1]), 2000))
 Z = interp_nu(X, Y)
 y_edge = interp_edge(X)
-mask = Y > y_edge
+y_right_edge = inter_right_edge(Y)
+mask = (Y > y_edge) | (X > y_right_edge)
 Z_masked = np.ma.array(Z, mask=mask)
 
-fig7, ax7 = plt.subplots(dpi=600, figsize = (8,6))
+fig7, ax7 = plt.subplots(dpi=600, figsize = (8,3))
 cm7 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
 #plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 plt.title("nu distribution")
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
 ax7.set_aspect('equal')
-plt.colorbar(cm7)
+plt.colorbar(cm7, location='bottom')
 
-plt.show()
 
 
 # Plot streamlines
-X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 30), np.linspace(0, np.max(xy_points_with_phi[:,1]), 30))
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
 Z1, Z2 = np.cos(interp_phi(X, Y)), np.sin(interp_phi(X, Y))
 y_edge = interp_edge(X)
-mask = Y > y_edge
+y_right_edge = inter_right_edge(Y)
+mask = (Y > y_edge) | (X > y_right_edge)
 Z_masked1, Z_masked2 = np.ma.filled(np.ma.array(Z1, mask=mask), fill_value=np.nan), np.ma.filled(np.ma.array(Z2, mask=mask), fill_value=np.nan)
 
-fig8, ax8 = plt.subplots()
-ax8.streamplot(X, Y, Z_masked1, Z_masked2, density=3)
+fig8, ax8 = plt.subplots(dpi=600, figsize = (8,2))
+ax8.streamplot(X, Y, Z_masked1, Z_masked2, density=1)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
 ax3.set_aspect('equal')
+plt.title('Streamlines')
 
 plt.show()
 print('final')

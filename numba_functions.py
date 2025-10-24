@@ -164,6 +164,7 @@ def next_step_core_nb(
         # Check for spacelike condition
         if (out_phi[i] + mu_p > np.pi * 0.5) or (out_phi[i] - mu_p < -np.pi * 0.5):
             stop = True
+        # Check for shock condition
         #DDs = np.sqrt((out_x[i] - out_x[i-1])**2 + (out_y[i] - out_y[i-1])**2)
         # if (a_A > np.arctan((prev_y[i + 1] - prev_y[i]) / (prev_x[i + 1] - prev_x[i]))) and (prev_x[i+1] > 8):
         #     stop = True
@@ -241,8 +242,3 @@ def next_step_core_nb(
 
     return stop
 
-if __name__ == "__main__":
-    import pickle
-    inpp = pickle.load(open("examplePickle", "rb"))
-    next_step_core_nb(*inpp)
-    print("Numba functions ran successfully")
