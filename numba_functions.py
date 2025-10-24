@@ -164,6 +164,15 @@ def next_step_core_nb(
         # Check for spacelike condition
         if (out_phi[i] + mu_p > np.pi * 0.5) or (out_phi[i] - mu_p < -np.pi * 0.5):
             stop = True
+        #DDs = np.sqrt((out_x[i] - out_x[i-1])**2 + (out_y[i] - out_y[i-1])**2)
+        # if (a_A > np.arctan((prev_y[i + 1] - prev_y[i]) / (prev_x[i + 1] - prev_x[i]))) and (prev_x[i+1] > 8):
+        #     stop = True
+        #     print('stopping because of schock')
+        if out_y[i] < out_y[i-1]:
+            if i > 5:
+                if out_y[i] < out_y[i-5] and out_y[i]>0:
+                    stop = True
+                    print('stopping because of schock', i, out_y[i])
 
     # Calculate properties at the atmospheric boundary
     out_phi[n_points - 1] = next_phi_edge
@@ -217,10 +226,23 @@ def next_step_core_nb(
         if (out_phi2[i] + mu_p > np.pi * 0.5) or (out_phi2[i] - mu_p < -np.pi * 0.5):
             stop = True
             print('stopping because of spacelike')
+        # if a_A > np.arctan((out_y[i+1] - out_y[i])/(out_x[i+1] - out_x[i])) and (out_x[i+1] > 8):
+        #     stop = True
+        #     print('stopping because of schock')
+        if out_y2[i] < out_y2[i-1]:
+            if i > 5:
+                if out_y2[i] < out_y2[i-5] and out_y2[i]>0:
+                    stop = True
+                    print('stopping because of schock', i, out_y2[i])
 
-    if np.max(out_x2) - np.min(out_x2) > 100:
+    if np.max(out_x2) - np.min(out_x2) > 3:
         stop = True
         print('stopping because of numerical instability', np.max(out_x2), np.min(out_x2))
 
     return stop
 
+if __name__ == "__main__":
+    import pickle
+    inpp = pickle.load(open("examplePickle", "rb"))
+    next_step_core_nb(*inpp)
+    print("Numba functions ran successfully")

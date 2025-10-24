@@ -69,7 +69,12 @@ class column:
 
         # Position foot of the first column at intersection of first - characteristic and the middle line y=0.
         self.x_array[0, 0] = radius / np.tan(mu_1)
-
+        self.y_array[0, 0] = 0.0
+        self.phi_array[0, 0] = 0.0
+        self.nu_array[0, 0] = prandtl_meyer(self.nozzle_exit_mach, gamma) + self.phi_array[0, 0]
+        self.M_array[0, 0] = inverse_prandtl_meyer(self.nu_array[0, 0], gamma)
+        self.P_over_P_e_array[0, 0] = ((1 + 0.5 * (gamma - 1) * self.M_array_2[0, 0] ** 2) / (
+                1 + 0.5 * (gamma - 1) * self.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1))
 
         for i in range(1, n_vert):
             # If point is in the expansion fan:
@@ -183,33 +188,7 @@ class column:
         out_M2 = next_column.M_array_2[0]
         out_P2 = next_column.P_over_P_e_array_2[0]
 
-        stop = next_step_core_nb(
-            self.n_points,
-            gamma,
-            next_phi_edge,
-            float(custom_nu_edge),
-            next_column.nozzle_exit_mach,
-            prev_x,
-            prev_y,
-            prev_phi,
-            prev_nu,
-            prev_x2,
-            prev_y2,
-            prev_phi2,
-            prev_nu2,
-            out_x,
-            out_y,
-            out_phi,
-            out_nu,
-            out_M,
-            out_P,
-            out_x2,
-            out_y2,
-            out_phi2,
-            out_nu2,
-            out_M2,
-            out_P2,
-        )
+        stop = next_step_core_nb( self.n_points, gamma, next_phi_edge, float(custom_nu_edge), next_column.nozzle_exit_mach, prev_x, prev_y, prev_phi, prev_nu, prev_x2, prev_y2, prev_phi2, prev_nu2, out_x, out_y, out_phi, out_nu, out_M, out_P, out_x2, out_y2, out_phi2, out_nu2, out_M2, out_P2)
         # Stop variable determines whether the propagation should stop, based on whether the next column becomes spacelike or has a numerical instability.
         next_column.stop = bool(stop)
         return next_column
@@ -218,7 +197,7 @@ class column:
 # Initialize list of columns
 columns = []
 # Set number of points per column:
-n_vert = 4000
+n_vert = 1000
 # Initialize first column a small distance downstream of the nozzle exit.
 init_column = column(n_vert)
 # Set radius of the nozzle exit, exit Mach number, and pressure ratio between atmospheric pressure and exit pressure.
@@ -242,7 +221,7 @@ xy_init = copy.deepcopy(xy)
 
 
 stopstop = False # Stop variable for while loop
-while stopstop == False and counter < 10*n_vert:
+while stopstop == False and counter < 4*n_vert:
     counter += 1
     # Calculate flow direction angle at the atmospheric boundary for the next column.
     phi_edge = columns[-1].phi_array_2[0,-1] - columns[-1].nu_array_2[0,-1] + prandtl_meyer(np.sqrt((2/(gamma-1)) * (1 + 0.5*(gamma-1)*columns[-1].nozzle_exit_mach**2)*(P_atmos_to_P_e)**((gamma-1)/-gamma)-2/(gamma-1)), gamma)
@@ -252,18 +231,22 @@ while stopstop == False and counter < 10*n_vert:
     new_column = columns[-1].next_step(gamma, phi_edge)
     xy = np.concatenate((xy, np.concatenate((new_column.x_array_2.T, new_column.y_array_2.T), axis=1)), axis=0)
     xy = np.concatenate((xy, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
-    if counter % 200 == 0:
+    if counter % 20 == 0:
         xy_init = np.concatenate((xy_init, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
 
     # Stopping procedure:
     if new_column.stop == False:
         columns.append(new_column)
+
     else:
         stopstop = True
+        xy_init = np.concatenate((xy_init, np.concatenate((new_column.x_array.T, new_column.y_array.T), axis=1)), axis=0)
+
 
 # Plot columns:
 fig0, ax0 = plt.subplots(dpi=600, figsize = (8,6))
-plt.scatter(xy_init[:,0], xy_init[:,1], c='red', s=0.1)
+ax0.set_aspect('equal')
+plt.plot(xy_init[:,0], xy_init[:,1], ',r', markersize=0.1)
 plt.show()
 
 # Generate arrays of (x,y) points with associated flow properties for interpolation and plotting.
@@ -337,7 +320,8 @@ print('17')
 
 fig, ax = plt.subplots(dpi=600, figsize = (8,6))
 cm = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-ax.contour(X, Y, Z_masked)
+ax.contour(X, Y, Z_masked, colors='black', linewidths=0.1)
+ax.set_aspect('equal')
 plt.title("V-")
 plt.colorbar(cm)
 
@@ -350,7 +334,8 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig2, ax2 = plt.subplots(dpi=600, figsize = (8,6))
 cm3 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-ax2.contour(X, Y, Z_masked)
+ax2.contour(X, Y, Z_masked, colors='black', linewidths=0.1)
+ax2.set_aspect('equal')
 plt.title("V+")
 plt.colorbar(cm3)
 
@@ -363,6 +348,7 @@ Z_masked1, Z_masked2 = np.ma.filled(np.ma.array(Z1, mask=mask), fill_value=np.na
 
 fig3, ax3 = plt.subplots()
 q = ax3.quiver(X, Y, Z_masked1, Z_masked2, headaxislength=0)
+ax3.set_aspect('equal')
 
 # Plot phi
 X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 300), np.linspace(0, np.max(xy_points_with_phi[:,1]), 300))
@@ -373,9 +359,10 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig4, ax4 = plt.subplots(dpi=600, figsize = (8,6))
 cm4 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
-plt.scatter(xy_init[:,0], xy_init[:,1], c='red', s=0.1)
+#plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
+#plt.scatter(xy_init[:,0], xy_init[:,1], c='red', s=0.1)
 plt.title("Phi Distribution")
+ax4.set_aspect('equal')
 plt.colorbar(cm4)
 
 # Plot P/P_e
@@ -387,8 +374,9 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig5, ax5 = plt.subplots(dpi=600, figsize = (8,6))
 cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='bwr', norm=matplotlib.colors.CenteredNorm(vcenter=1))
-plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
+#plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 plt.title("Pressure ratio distribution")
+ax5.set_aspect('equal')
 plt.colorbar(cm5)
 
 # Plot M
@@ -400,8 +388,9 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig6, ax6 = plt.subplots(dpi=600, figsize = (8,6))
 cm6 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
+#plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 plt.title("Mach number distribution")
+ax6.set_aspect('equal')
 plt.colorbar(cm6)
 
 # Plot nu
@@ -413,9 +402,24 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig7, ax7 = plt.subplots(dpi=600, figsize = (8,6))
 cm7 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
+#plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 plt.title("nu distribution")
+ax7.set_aspect('equal')
 plt.colorbar(cm7)
+
+plt.show()
+
+
+# Plot streamlines
+X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 30), np.linspace(0, np.max(xy_points_with_phi[:,1]), 30))
+Z1, Z2 = np.cos(interp_phi(X, Y)), np.sin(interp_phi(X, Y))
+y_edge = interp_edge(X)
+mask = Y > y_edge
+Z_masked1, Z_masked2 = np.ma.filled(np.ma.array(Z1, mask=mask), fill_value=np.nan), np.ma.filled(np.ma.array(Z2, mask=mask), fill_value=np.nan)
+
+fig8, ax8 = plt.subplots()
+ax8.streamplot(X, Y, Z_masked1, Z_masked2, density=3)
+ax3.set_aspect('equal')
 
 plt.show()
 print('final')
