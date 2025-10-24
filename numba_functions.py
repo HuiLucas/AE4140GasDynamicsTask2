@@ -93,33 +93,7 @@ def inverse_expansion_fan_function_nb(psi_input, gamma, mach_nozzle, tol=1e-10, 
     return phi
 
 @njit(cache=True, fastmath=True)
-def next_step_core_nb(
-    n_points,
-    gamma,
-    next_phi_edge,
-    custom_nu_edge,
-    nozzle_exit_mach,
-    prev_x,
-    prev_y,
-    prev_phi,
-    prev_nu,
-    prev_x2,
-    prev_y2,
-    prev_phi2,
-    prev_nu2,
-    out_x,
-    out_y,
-    out_phi,
-    out_nu,
-    out_M,
-    out_P,
-    out_x2,
-    out_y2,
-    out_phi2,
-    out_nu2,
-    out_M2,
-    out_P2,
-):
+def next_step_core_nb(n_points, gamma, next_phi_edge, custom_nu_edge, nozzle_exit_mach, prev_x, prev_y, prev_phi, prev_nu, prev_x2, prev_y2, prev_phi2, prev_nu2, out_x, out_y, out_phi, out_nu, out_M, out_P, out_x2, out_y2, out_phi2, out_nu2, out_M2, out_P2):
     # NUMBA optimized core function for calculating the next column(s) in the method of characteristics.
     stop = False
     # Calculate properties at point at y=0 using the fact that phi=0 there.
@@ -165,10 +139,6 @@ def next_step_core_nb(
         if (out_phi[i] + mu_p > np.pi * 0.5) or (out_phi[i] - mu_p < -np.pi * 0.5):
             stop = True
         # Check for shock condition
-        #DDs = np.sqrt((out_x[i] - out_x[i-1])**2 + (out_y[i] - out_y[i-1])**2)
-        # if (a_A > np.arctan((prev_y[i + 1] - prev_y[i]) / (prev_x[i + 1] - prev_x[i]))) and (prev_x[i+1] > 8):
-        #     stop = True
-        #     print('stopping because of schock')
         if out_y[i] < out_y[i-1]:
             if i > 5:
                 if out_y[i] < out_y[i-5] and out_y[i]>0:
@@ -227,9 +197,6 @@ def next_step_core_nb(
         if (out_phi2[i] + mu_p > np.pi * 0.5) or (out_phi2[i] - mu_p < -np.pi * 0.5):
             stop = True
             print('stopping because of spacelike')
-        # if a_A > np.arctan((out_y[i+1] - out_y[i])/(out_x[i+1] - out_x[i])) and (out_x[i+1] > 8):
-        #     stop = True
-        #     print('stopping because of schock')
         if out_y2[i] < out_y2[i-1]:
             if i > 5:
                 if out_y2[i] < out_y2[i-5] and out_y2[i]>0:

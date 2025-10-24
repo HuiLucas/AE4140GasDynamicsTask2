@@ -5,12 +5,7 @@ import matplotlib
 from scipy.interpolate import interp1d, NearestNDInterpolator
 
 from Generate_pre_init_points import get_xy_with_vars, generate_pre_init_points
-from numba_functions import (
-    prandtl_meyer_nb,
-    inverse_prandtl_meyer_nb,
-    inverse_expansion_fan_function_nb,
-    next_step_core_nb,
-)
+from numba_functions import prandtl_meyer_nb, inverse_prandtl_meyer_nb, inverse_expansion_fan_function_nb, next_step_core_nb
 import copy
 
 # Wrapper functions for the NUMBA-optimized functions as defined in numba_functions.py
@@ -74,7 +69,7 @@ class column:
         self.nu_array[0, 0] = prandtl_meyer(self.nozzle_exit_mach, gamma) + self.phi_array[0, 0]
         self.M_array[0, 0] = inverse_prandtl_meyer(self.nu_array[0, 0], gamma)
         self.P_over_P_e_array[0, 0] = ((1 + 0.5 * (gamma - 1) * self.M_array_2[0, 0] ** 2) / (
-                1 + 0.5 * (gamma - 1) * self.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1))
+                1 + 0.5 * (gamma - 1) * self.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1.))
 
         for i in range(1, n_vert):
             # If point is in the expansion fan:
@@ -101,8 +96,8 @@ class column:
                 self.nu_array[0, i] = prandtl_meyer(self.nozzle_exit_mach, gamma) + self.phi_array[
                     0, i]
                 self.M_array[0, i] = inverse_prandtl_meyer(self.nu_array[0, i], gamma)
-                self.P_over_P_e_array[0, i] = ((1 + 0.5 * (gamma - 1) * self.M_array_2[0, i] ** 2) / (
-                            1 + 0.5 * (gamma - 1) * self.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1))
+                self.P_over_P_e_array[0, i] = ((1 + 0.5 * (gamma - 1) * self.M_array[0, i] ** 2) / (
+                            1 + 0.5 * (gamma - 1) * self.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1.))
             # If point is in the uniform flow region after the expansion fan:
             else:
                 # Calculate Psi at point i:
@@ -131,7 +126,7 @@ class column:
                 self.nu_array[0, i] = prandtl_meyer(self.nozzle_exit_mach, gamma) + phi_edge
                 self.M_array[0, i] = inverse_prandtl_meyer(self.nu_array[0, i], gamma)
                 self.P_over_P_e_array[0, i] = ((1 + 0.5 * (gamma - 1) * self.M_array[0, i] ** 2) / (
-                            1 + 0.5 * (gamma - 1) * self.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1))
+                            1 + 0.5 * (gamma - 1) * self.nozzle_exit_mach ** 2)) ** (-gamma / (gamma - 1.))
         # Calculate the _2 column properties by propogating one step:
         for i in range(self.n_points - 1):
             # Using the defitions from the lecture:
@@ -321,10 +316,10 @@ print('17')
 
 fig, ax = plt.subplots(dpi=600, figsize = (8,3))
 cm = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-ax.contour(X, Y, Z_masked, colors='black', linewidths=0.1)
-plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
-plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
-plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
+ax.contour(X, Y, Z_masked, colors='black', linewidths=0.3)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=2)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=2)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=2)
 ax.set_aspect('equal')
 plt.title("V-")
 plt.colorbar(cm, location='bottom')
@@ -339,10 +334,10 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig2, ax2 = plt.subplots(dpi=600, figsize = (8,3))
 cm3 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-ax2.contour(X, Y, Z_masked, colors='black', linewidths=0.1)
-plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
-plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
-plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
+ax2.contour(X, Y, Z_masked, colors='black', linewidths=0.3)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=2)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=2)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=2)
 ax2.set_aspect('equal')
 plt.title("V+")
 plt.colorbar(cm3, location='bottom')
@@ -357,8 +352,8 @@ Z_masked1, Z_masked2 = np.ma.filled(np.ma.array(Z1, mask=mask), fill_value=np.na
 
 fig3, ax3 = plt.subplots(dpi=600, figsize=(8,2))
 q = ax3.quiver(X, Y, Z_masked1, Z_masked2, headaxislength=0)
-plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
-plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=2)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=2)
 ax3.set_aspect('equal')
 plt.title("Vector Field")
 
@@ -372,12 +367,10 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig4, ax4 = plt.subplots(dpi=600, figsize = (8,3))
 cm4 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-#plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
-#plt.scatter(xy_init[:,0], xy_init[:,1], c='red', s=0.1)
 plt.title("Phi Distribution")
-plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
-plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
-plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=2)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=2)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=2)
 ax4.set_aspect('equal')
 plt.colorbar(cm4, location='bottom')
 
@@ -387,18 +380,19 @@ Z = interp_P_over_P_e(X, Y)
 y_edge = interp_edge(X)
 y_right_edge = inter_right_edge(Y)
 mask = (Y > y_edge) | (X > y_right_edge)
-Z_masked = np.ma.array(Z, mask=mask)
+Z_masked = np.ma.array(Z, mask=mask).filled(1.)
 
 fig5, ax5 = plt.subplots(dpi=600, figsize = (8,3))
-cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis', norm=matplotlib.colors.LogNorm(vmin=Z_masked.min(), vmax=Z_masked.max()))
-print(np.max(Z_masked), np.min(Z_masked))
-#plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
+cm5 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='afmhot', norm=matplotlib.colors.Normalize(vmin=0., vmax=1.))
 plt.title("Pressure ratio distribution")
-plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
-plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
-plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=2)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=2)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=2)
 ax5.set_aspect('equal')
-plt.colorbar(cm5, location='bottom', format=matplotlib.ticker.LogFormatter(labelOnlyBase=False))
+plt.colorbar(cm5, location='bottom')
+
+
+
 
 # Plot M
 X,Y = np.meshgrid(np.linspace(0, np.max(xy_points_with_phi[:,0]), 2000), np.linspace(0, np.max(xy_points_with_phi[:,1]), 2000))
@@ -410,11 +404,10 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig6, ax6 = plt.subplots(dpi=600, figsize = (8,3))
 cm6 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-#plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 plt.title("Mach number distribution")
-plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
-plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
-plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=2)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=2)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=2)
 ax6.set_aspect('equal')
 plt.colorbar(cm6, location='bottom')
 
@@ -428,11 +421,10 @@ Z_masked = np.ma.array(Z, mask=mask)
 
 fig7, ax7 = plt.subplots(dpi=600, figsize = (8,3))
 cm7 = plt.pcolormesh(X, Y, Z_masked, shading='auto', cmap='viridis')
-#plt.scatter(top_points[:,0], top_points[:,1], c='black', edgecolor='k', cmap='viridis')
 plt.title("nu distribution")
-plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
-plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
-plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=0.3)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=2)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=2)
+plt.plot(init_column.x_array.ravel(), init_column.y_array.ravel(), 'k--', linewidth=2)
 ax7.set_aspect('equal')
 plt.colorbar(cm7, location='bottom')
 
@@ -448,8 +440,8 @@ Z_masked1, Z_masked2 = np.ma.filled(np.ma.array(Z1, mask=mask), fill_value=np.na
 
 fig8, ax8 = plt.subplots(dpi=600, figsize = (8,2))
 ax8.streamplot(X, Y, Z_masked1, Z_masked2, density=1)
-plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=0.3)
-plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=0.3)
+plt.plot(X[0, :], interp_edge(X[0, :]), 'k-', linewidth=2)
+plt.plot(new_column.x_array.ravel(), new_column.y_array.ravel(), 'k-', linewidth=2)
 ax3.set_aspect('equal')
 plt.title('Streamlines')
 
